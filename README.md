@@ -54,6 +54,7 @@ then `sandbox-install` re-runs itself through `sg incus-admin`.
 
 | Option | Meaning |
 |---|---|
+| `--branch NAME` | clone this branch instead of the default one — test a change before it reaches main |
 | `--distro IMAGE` | Incus image, default `ubuntu/24.04` (also `debian/12`, `fedora/42`, `archlinux`, …) |
 | `--env KEY=VALUE` | variable for the install command (repeatable) |
 | `--gpu` | pass all GPUs through — shared with the host, mind running workloads |

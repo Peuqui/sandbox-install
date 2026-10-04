@@ -6,6 +6,7 @@
 #   sandbox-install [options] <repo-url> -- <install command>
 #
 # Options:
+#   --branch NAME      clone this branch instead of the default one
 #   --distro IMAGE     Incus image (default: ubuntu/24.04; e.g. debian/12,
 #                      fedora/42, archlinux)
 #   --env KEY=VALUE    exported for the install command (repeatable)
@@ -33,6 +34,7 @@ LOG_DIR="$TOOL_DIR/logs"
 SANDBOX_USER="tester"
 
 DISTRO="ubuntu/24.04"
+BRANCH=""
 MEMORY="12GiB"
 CPU="8"
 GPU=0
@@ -43,6 +45,7 @@ usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 
 while [ $# -gt 0 ]; do
     case "$1" in
+        --branch) BRANCH="$2"; shift 2 ;;
         --distro) DISTRO="$2"; shift 2 ;;
         --env)    ENVS+=("$2"); shift 2 ;;
         --gpu)    GPU=1; shift ;;
@@ -75,6 +78,7 @@ cleanup() {
 trap cleanup EXIT
 
 log "repo:    $REPO_URL"
+log "branch:  ${BRANCH:-default}"
 log "command: $INSTALL_CMD"
 log "image:   $DISTRO  (memory $MEMORY, cpu $CPU, gpu $GPU)"
 
@@ -140,7 +144,7 @@ log "cloning and running the install command (full output below)"
 set +e
 # Login shell as the user, like someone who just logged in.
 incus exec "$NAME" -- su - "$SANDBOX_USER" -c \
-    "git clone --quiet $(printf '%q' "$REPO_URL") $(printf '%q' "$REPO_DIR") \
+    "git clone --quiet ${BRANCH:+--branch $(printf '%q' "$BRANCH")} $(printf '%q' "$REPO_URL") $(printf '%q' "$REPO_DIR") \
         && cd $(printf '%q' "$REPO_DIR") && $ENV_EXPORTS $INSTALL_CMD" \
     </dev/null >>"$LOG" 2>&1
 STATUS=$?

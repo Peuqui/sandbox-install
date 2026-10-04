@@ -57,6 +57,7 @@ wieder anmelden — bis dahin startet sich `sandbox-install` selbst über
 
 | Option | Bedeutung |
 |---|---|
+| `--branch NAME` | diesen Branch statt des Standard-Branches klonen — eine Änderung testen, bevor sie nach main geht |
 | `--distro IMAGE` | Incus-Image, Standard `ubuntu/24.04` (auch `debian/12`, `fedora/42`, `archlinux`, …) |
 | `--env KEY=VALUE` | Variable für den Installationsbefehl (mehrfach) |
 | `--gpu` | alle GPUs durchreichen — geteilt mit dem Host, laufende Last beachten |
