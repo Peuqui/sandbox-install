@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+# sandbox-install — run a project's installation in a fresh Incus system
+# container, the way a stranger would: public repo, normal user with sudo,
+# nothing from this machine. Logs land in logs/<container>.log.
+#
+#   sandbox-install [options] <repo-url> -- <install command>
+#
+# Options:
+#   --distro IMAGE     Incus image (default: ubuntu/24.04; e.g. debian/12,
+#                      fedora/42, archlinux)
+#   --env KEY=VALUE    exported for the install command (repeatable)
+#   --gpu              pass all GPUs into the container (shared with the host!)
+#   --memory SIZE      memory limit (default: 12GiB)
+#   --cpu N            CPU limit (default: 8)
+#   --keep             keep the container afterwards (default: delete it)
+#
+# Example:
+#   sandbox-install --gpu --env AIFRED_INSTALL_OLLAMA=n \
+#       https://github.com/Peuqui/AIfred-Intelligence.git -- ./scripts/install-all.sh
+set -euo pipefail
+
+# Incus needs the incus-admin group; a session started before the user
+# joined it still lacks it. Re-run the whole script once under that group
+# (sg hands its command to sh, so the arguments travel bash-quoted).
+if ! id -nG | tr ' ' '\n' | grep -qx incus-admin; then
+    SANDBOX_ARGV="$(printf '%q ' "$@")"
+    export SANDBOX_ARGV
+    exec sg incus-admin -c "bash -c 'eval set -- \$SANDBOX_ARGV; exec \"\$0\" \"\$@\"' $(readlink -f "$0")"
+fi
+
+TOOL_DIR="$(cd -- "$(dirname -- "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+LOG_DIR="$TOOL_DIR/logs"
+SANDBOX_USER="tester"
+
+DISTRO="ubuntu/24.04"
+MEMORY="12GiB"
+CPU="8"
+GPU=0
+KEEP=0
+ENVS=()
+
+usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --distro) DISTRO="$2"; shift 2 ;;
+        --env)    ENVS+=("$2"); shift 2 ;;
+        --gpu)    GPU=1; shift ;;
+        --memory) MEMORY="$2"; shift 2 ;;
+        --cpu)    CPU="$2"; shift 2 ;;
+        --keep)   KEEP=1; shift ;;
+        -h|--help) usage 0 ;;
+        --) shift; break ;;
+        -*) echo "unknown option: $1" >&2; usage 1 ;;
+        *)  REPO_URL="$1"; shift ;;
+    esac
+done
+[ -n "${REPO_URL:-}" ] && [ $# -gt 0 ] || usage 1
+INSTALL_CMD="$*"
+
+REPO_NAME="$(basename "$REPO_URL" .git | tr '[:upper:]_.' '[:lower:]--')"
+NAME="sbx-${REPO_NAME:0:30}-$(date +%m%d-%H%M%S)"
+mkdir -p "$LOG_DIR"
+LOG="$LOG_DIR/$NAME.log"
+
+log() { echo "[sandbox $(date +%H:%M:%S)] $*" | tee -a "$LOG"; }
+
+cleanup() {
+    if [ "$KEEP" = "1" ]; then
+        log "container kept: incus exec $NAME -- su - $SANDBOX_USER"
+    else
+        incus delete -f "$NAME" >/dev/null 2>&1 && log "container deleted"
+    fi
+}
+trap cleanup EXIT
+
+log "repo:    $REPO_URL"
+log "command: $INSTALL_CMD"
+log "image:   $DISTRO  (memory $MEMORY, cpu $CPU, gpu $GPU)"
+
+# security.nesting: installers start Docker inside the container.
+incus launch "images:$DISTRO" "$NAME" \
+    -c security.nesting=true -c limits.memory="$MEMORY" -c limits.cpu="$CPU" \
+    >>"$LOG" 2>&1
+if [ "$GPU" = "1" ]; then
+    incus stop "$NAME" >>"$LOG" 2>&1
+    incus config set "$NAME" nvidia.runtime=true >>"$LOG" 2>&1
+    incus config device add "$NAME" gpu gpu >>"$LOG" 2>&1
+    incus start "$NAME" >>"$LOG" 2>&1
+fi
+
+log "waiting for network"
+for _ in $(seq 1 60); do
+    incus exec "$NAME" -- getent hosts github.com >/dev/null 2>&1 && break
+    sleep 2
+done
+incus exec "$NAME" -- getent hosts github.com >/dev/null 2>&1 \
+    || { log "no network in the container"; exit 1; }
+
+# The only things assumed on a stranger's machine: git (to clone), sudo and
+# a normal user who may use it. Passwordless, since nobody types here.
+log "preparing: git, sudo, user $SANDBOX_USER"
+incus exec "$NAME" -- sh -c '
+    if command -v apt-get >/dev/null; then apt-get update -qq && apt-get install -y -qq git sudo
+    elif command -v dnf >/dev/null; then dnf install -y -q git sudo
+    elif command -v pacman >/dev/null; then pacman -Sy --noconfirm --needed git sudo
+    else echo "no supported package manager" >&2; exit 1; fi' >>"$LOG" 2>&1
+incus exec "$NAME" -- sh -c "useradd -m -s /bin/bash $SANDBOX_USER \
+    && echo '$SANDBOX_USER ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/$SANDBOX_USER" >>"$LOG" 2>&1
+
+ENV_EXPORTS=""
+for kv in "${ENVS[@]}"; do
+    ENV_EXPORTS+="export $(printf '%q' "$kv"); "
+done
+REPO_DIR="/home/$SANDBOX_USER/$(basename "$REPO_URL" .git)"
+
+log "cloning and running the install command (full output below)"
+set +e
+# Login shell as the user, like someone who just logged in.
+incus exec "$NAME" -- su - "$SANDBOX_USER" -c \
+    "git clone --quiet $(printf '%q' "$REPO_URL") $(printf '%q' "$REPO_DIR") \
+        && cd $(printf '%q' "$REPO_DIR") && $ENV_EXPORTS $INSTALL_CMD" \
+    </dev/null >>"$LOG" 2>&1
+STATUS=$?
+set -e
+
+log "install command exited with $STATUS"
+log "log: $LOG"
+exit "$STATUS"
