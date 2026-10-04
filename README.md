@@ -39,4 +39,4 @@ Incus mit Netz `incusbr0` (10.99.0.0/24, DNS = FRITZ!Box 192.168.0.254) und Pool
 `default` — eingerichtet mit `~/MiniPCLinux/scripts/incus-setup.sh`. Der
 Aufrufer braucht die Gruppe `incus-admin`; fehlt sie in einer älteren Sitzung,
 startet sich das Skript selbst über `sg` neu. Für `--gpu`: NVIDIA Container
-Toolkit auf dem Host.
+Toolkit auf dem Host; im Container richtet `--gpu` das Toolkit im CDI-Modus ein (Incus blendet `/proc/driver/nvidia/gpus` nicht ein, das der alte Modus braucht). Incus ab 7.0 (Zabbly) — 6.0 aus Ubuntu verträgt sich nicht mit Docker 29 im Container.

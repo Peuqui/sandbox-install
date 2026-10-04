@@ -78,10 +78,11 @@ log "repo:    $REPO_URL"
 log "command: $INSTALL_CMD"
 log "image:   $DISTRO  (memory $MEMORY, cpu $CPU, gpu $GPU)"
 
-# security.nesting: installers start Docker inside the container.
-incus launch "images:$DISTRO" "$NAME" \
+# security.nesting: installers start Docker inside the container. The client
+# once hung after the container was created (04.10.) — bounded, not forever.
+timeout 300 incus launch "images:$DISTRO" "$NAME" \
     -c security.nesting=true -c limits.memory="$MEMORY" -c limits.cpu="$CPU" \
-    >>"$LOG" 2>&1
+    >>"$LOG" 2>&1 || { log "incus launch failed or hung (> 5 min)"; exit 1; }
 if [ "$GPU" = "1" ]; then
     incus stop "$NAME" >>"$LOG" 2>&1
     incus config set "$NAME" nvidia.runtime=true >>"$LOG" 2>&1
@@ -107,6 +108,27 @@ incus exec "$NAME" -- sh -c '
     else echo "no supported package manager" >&2; exit 1; fi' >>"$LOG" 2>&1
 incus exec "$NAME" -- sh -c "useradd -m -s /bin/bash $SANDBOX_USER \
     && echo '$SANDBOX_USER ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/$SANDBOX_USER" >>"$LOG" 2>&1
+
+# With --gpu the user is assumed to own an NVIDIA card and to have set up
+# the NVIDIA Container Toolkit as installers require it (official apt
+# instructions). CDI mode as Docker's default runtime: Incus does not show
+# /proc/driver/nvidia/gpus inside the container, which the legacy mode needs;
+# CDI describes the GPUs from the libraries Incus mounts in.
+if [ "$GPU" = "1" ]; then
+    log "preparing: NVIDIA Container Toolkit (--gpu)"
+    incus exec "$NAME" -- sh -c '
+        command -v apt-get >/dev/null || { echo "--gpu toolkit setup supports apt only" >&2; exit 1; }
+        apt-get install -y -qq curl gpg
+        curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
+            | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+        curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
+            | sed "s#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g" \
+            > /etc/apt/sources.list.d/nvidia-container-toolkit.list
+        apt-get update -qq && apt-get install -y -qq nvidia-container-toolkit
+        nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+        nvidia-ctk config --set nvidia-container-runtime.mode=cdi --in-place
+        nvidia-ctk runtime configure --runtime=docker --set-as-default' >>"$LOG" 2>&1
+fi
 
 ENV_EXPORTS=""
 for kv in "${ENVS[@]}"; do
