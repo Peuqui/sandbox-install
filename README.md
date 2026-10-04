@@ -35,7 +35,7 @@ Beispiel:
 
 ## Voraussetzungen auf dem Host
 
-Incus mit Netz `incusbr0` (10.99.0.0/24, DNS 1.1.1.1/9.9.9.9) und Pool
+Incus mit Netz `incusbr0` (10.99.0.0/24, DNS = FRITZ!Box 192.168.0.254) und Pool
 `default` — eingerichtet mit `~/MiniPCLinux/scripts/incus-setup.sh`. Der
 Aufrufer braucht die Gruppe `incus-admin`; fehlt sie in einer älteren Sitzung,
 startet sich das Skript selbst über `sg` neu. Für `--gpu`: NVIDIA Container
