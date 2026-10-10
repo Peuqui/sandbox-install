@@ -52,6 +52,9 @@ then `sandbox-install` re-runs itself through `sg incus-admin`.
 ./sandbox-install [options] <repo-url> -- <install command>
 ```
 
+The install command is one argument (a shell command line, e.g. `"make && make install"`) or a
+command with its arguments, kept as given: `-- bash -c "$(cat steps.sh)"` runs the whole script.
+
 | Option | Meaning |
 |---|---|
 | `--branch NAME` | clone this branch instead of the default one — test a change before it reaches main |

@@ -59,7 +59,9 @@ while [ $# -gt 0 ]; do
     esac
 done
 [ -n "${REPO_URL:-}" ] && [ $# -gt 0 ] || usage 1
-INSTALL_CMD="$*"
+# One argument is a shell command line ("make && make install"); several are a command with its
+# arguments, kept as given (bash -c 'a script' needs its script in one piece, not cut into words).
+if [ "$#" -eq 1 ]; then INSTALL_CMD="$1"; else INSTALL_CMD="$(printf '%q ' "$@")"; fi
 
 REPO_NAME="$(basename "$REPO_URL" .git | tr '[:upper:]_.' '[:lower:]--')"
 NAME="sbx-${REPO_NAME:0:30}-$(date +%m%d-%H%M%S)"

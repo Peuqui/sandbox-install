@@ -55,6 +55,10 @@ wieder anmelden — bis dahin startet sich `sandbox-install` selbst über
 ./sandbox-install [Optionen] <repo-url> -- <Installationsbefehl>
 ```
 
+Der Installationsbefehl ist ein Argument (eine Shell-Zeile, z. B. `"make && make install"`) oder ein
+Befehl mit seinen Argumenten, unverändert übergeben: `-- bash -c "$(cat schritte.sh)"` führt das ganze
+Skript aus.
+
 | Option | Bedeutung |
 |---|---|
 | `--branch NAME` | diesen Branch statt des Standard-Branches klonen — eine Änderung testen, bevor sie nach main geht |
