@@ -91,4 +91,4 @@ Beispiel:
 
 ## Lizenz
 
-[PolyForm Noncommercial 1.0.0](LICENSE)
+[MIT](LICENSE)
