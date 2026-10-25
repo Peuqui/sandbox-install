@@ -89,6 +89,12 @@ Beispiel:
    (für jede Frage eine Umgebungsvariable anbieten)
 5. Alles nach `logs/<container>.log`; Container löschen, außer mit `--keep`
 
+## Star History
+
+![Star History](https://raw.githubusercontent.com/Peuqui/Traffic/main/data/sandbox-install/star-history.svg)
+
+<sub>Täglich erhoben in [Peuqui/Traffic](https://github.com/Peuqui/Traffic), zusammen mit Aufrufen und Klonen. GitHub hat die Stargazer-API am 30.06.2026 auf Repo-Admins beschränkt, deshalb brauchen externe Diagramm-Dienste jetzt ein Token mit Schreibrechten.</sub>
+
 ## Lizenz
 
 [MIT](LICENSE)

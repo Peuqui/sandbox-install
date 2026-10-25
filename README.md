@@ -85,6 +85,12 @@ Example:
    environment variables for every prompt)
 5. Writes everything to `logs/<container>.log`; deletes the container unless `--keep`
 
+## Star History
+
+![Star History](https://raw.githubusercontent.com/Peuqui/Traffic/main/data/sandbox-install/star-history.svg)
+
+<sub>Recorded daily in [Peuqui/Traffic](https://github.com/Peuqui/Traffic), together with views and clones. GitHub restricted the stargazer API to repo admins on 2026-06-30, so external chart services now need a token with write access.</sub>
+
 ## License
 
 [MIT](LICENSE)
